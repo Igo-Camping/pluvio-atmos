@@ -35,7 +35,7 @@ export async function initRadar(leafletMap) {
 async function loadRadarForMode(requestedProvider) {
   sourceMode = requestedProvider || PROVIDERS.auto;
   stopPlayback();
-  logRadar('requested provider', sourceMode);
+  logRadarMode(sourceMode);
 
   if (sourceMode === PROVIDERS.auto) {
     await loadRadarAuto();
@@ -46,8 +46,10 @@ async function loadRadarForMode(requestedProvider) {
 
   try {
     if (sourceMode === PROVIDERS.bom) {
+      logRadar('Attempting BoM radar...', '');
       await loadBomRadar();
     } else {
+      logRadar('Attempting RainViewer fallback...', '');
       await loadRainViewerRadar();
     }
     showRadarMessage('');
@@ -57,6 +59,7 @@ async function loadRadarForMode(requestedProvider) {
     activeProvider = null;
     setRadarTimestamp(sourceMode === PROVIDERS.bom ? 'BoM radar unavailable' : 'RainViewer radar unavailable');
     setRadarStatus('Radar: unavailable');
+    logActiveProvider(activeProvider);
     showRadarMessage(sourceMode === PROVIDERS.bom
       ? 'BoM radar unavailable.'
       : 'Radar unavailable — gauge data still active.');
@@ -67,6 +70,7 @@ async function loadRadarAuto() {
   clearRadarLayer();
 
   try {
+    logRadar('Attempting BoM radar...', '');
     await loadBomRadar();
     setRadarStatus('Radar: BoM');
     return;
@@ -77,6 +81,7 @@ async function loadRadarAuto() {
   }
 
   try {
+    logRadar('Attempting RainViewer fallback...', '');
     await loadRainViewerRadar();
     setRadarStatus('Radar: RainViewer fallback');
     return;
@@ -87,12 +92,13 @@ async function loadRadarAuto() {
     showRadarMessage('Radar unavailable — gauge data still active.');
     setRadarStatus('Radar: unavailable');
     setRadarTimestamp('Radar unavailable');
+    activeProvider = null;
+    logActiveProvider(activeProvider);
   }
 }
 
 async function loadBomRadar() {
-  throwIfForcedFailure(PROVIDERS.bom);
-  const selectedUrl = `${BOM_RADAR_URL}?_=${Date.now()}`;
+  const selectedUrl = getBomRadarUrl();
   const frame = {
     provider: PROVIDERS.bom,
     time: Date.now(),
@@ -102,6 +108,7 @@ async function loadBomRadar() {
   logRadar('frame count', 1);
   logRadar('selected frame timestamp', 'latest');
   logRadar('selected URL/template', selectedUrl);
+  console.log(`BoM radar URL: ${selectedUrl}`);
 
   await renderBomFrame(frame);
   frames = [frame];
@@ -109,7 +116,8 @@ async function loadBomRadar() {
   activeProvider = PROVIDERS.bom;
   setRadarStatus('Radar: BoM');
   setRadarTimestamp(`${BOM_RADAR_NAME}: loaded ${formatTimestamp(new Date())}`);
-  logRadar('active provider', activeProvider);
+  console.log('BoM radar succeeded');
+  logActiveProvider(activeProvider);
 }
 
 async function loadRainViewerRadar() {
@@ -129,7 +137,7 @@ async function loadRainViewerRadar() {
   renderRainViewerFrame(frames[frameIndex]);
   activeProvider = PROVIDERS.rainviewer;
   setRadarStatus(sourceMode === PROVIDERS.auto ? 'Radar: RainViewer fallback' : 'Radar: RainViewer');
-  logRadar('active provider', activeProvider);
+  logActiveProvider(activeProvider);
 }
 
 async function loadRainViewerMetadata() {
@@ -176,6 +184,14 @@ function renderBomFrame(frame) {
       reject(err);
     }
   });
+}
+
+function getBomRadarUrl() {
+  const mode = getRadarTestMode();
+  const base = mode === 'all-fail' || mode === 'bom-fail'
+    ? `${BOM_RADAR_URL}.forced-failure`
+    : BOM_RADAR_URL;
+  return `${base}?_=${Date.now()}`;
 }
 
 function bindRadarControls() {
@@ -236,10 +252,13 @@ function ensureRadarPane() {
 }
 
 function throwIfForcedFailure(provider) {
-  const mode = new URLSearchParams(window.location.search).get('radarTest');
-  if (mode === 'all-fail') throw new Error(`${provider} forced failure`);
-  if (mode === 'bom-fail' && provider === PROVIDERS.bom) throw new Error('BoM forced failure');
+  const mode = getRadarTestMode();
+  if (mode === 'all-fail' && provider === PROVIDERS.rainviewer) throw new Error('RainViewer forced failure');
   if (mode === 'rainviewer-fail' && provider === PROVIDERS.rainviewer) throw new Error('RainViewer forced failure');
+}
+
+function getRadarTestMode() {
+  return new URLSearchParams(window.location.search).get('radarTest');
 }
 
 function setRadarTimestamp(text) {
@@ -260,5 +279,19 @@ function showRadarMessage(message) {
 }
 
 function logRadar(label, value) {
-  console.log(`[radar] ${label}: ${value}`);
+  const suffix = value === '' ? '' : ` ${value}`;
+  console.log(`[radar] ${label}${suffix}`);
+}
+
+function logRadarMode(mode) {
+  console.log(`Radar mode selected: ${mode}`);
+}
+
+function logActiveProvider(provider) {
+  const label = provider === PROVIDERS.bom
+    ? 'BoM'
+    : provider === PROVIDERS.rainviewer
+      ? 'RainViewer'
+      : 'unavailable';
+  console.log(`Active radar provider: ${label}`);
 }
