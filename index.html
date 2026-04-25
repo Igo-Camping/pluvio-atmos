@@ -3,130 +3,132 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pluvio Atmos</title>
-
-<style>
-body {
-  font-family: Arial, sans-serif;
-  margin: 0;
-  background: #0b1e2d;
-  color: #fff;
-}
-
-header {
-  padding: 20px;
-  background: #102c44;
-  text-align: center;
-  font-size: 22px;
-  font-weight: bold;
-}
-
-.container {
-  padding: 20px;
-  max-width: 900px;
-  margin: auto;
-}
-
-.card {
-  background: #132f47;
-  padding: 20px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
-
-label {
-  display: block;
-  margin-top: 10px;
-  font-size: 14px;
-}
-
-input, select {
-  width: 100%;
-  padding: 10px;
-  margin-top: 5px;
-  border-radius: 5px;
-  border: none;
-}
-
-button {
-  margin-top: 15px;
-  padding: 12px;
-  width: 100%;
-  background: #1ea7fd;
-  border: none;
-  border-radius: 5px;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #0d8ae6;
-}
-
-.result {
-  font-size: 20px;
-  margin-top: 10px;
-}
-</style>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://tilecache.rainviewer.com; connect-src 'self' https://nsw-rainfall-analyser-api.onrender.com https://wiski.mhl.nsw.gov.au https://api.rainviewer.com; font-src 'self' https://cdnjs.cloudflare.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Pluviometrics Atmos</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="./styles.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 </head>
-
 <body>
-
-<header>
-🌧️ Pluvio Atmos
+<header class="app-header">
+  <div class="brand">
+    <img class="brand-logo" src="./assets/logos/PLUVIOMETRICS.png" alt="Pluviometrics">
+    <img class="product-logo" src="./assets/logos/ATMOS.png" alt="Atmos">
+    <div class="brand-title">
+      <span>Pluviometrics</span>
+      <strong>Atmos</strong>
+    </div>
+  </div>
+  <div class="header-status" aria-live="polite">
+    <span class="status-dot" id="status-dot"></span>
+    <span id="status-text">Starting Atmos...</span>
+  </div>
 </header>
 
-<div class="container">
+<main class="app-shell">
+  <section class="map-panel" aria-label="Live rainfall map">
+    <div id="map"></div>
+    <div class="map-toolbar">
+      <div class="toolbar-group">
+        <button class="icon-btn" id="refresh-btn" type="button" title="Refresh live rainfall" aria-label="Refresh live rainfall">Refresh</button>
+        <span class="toolbar-text" id="last-updated">Not loaded</span>
+      </div>
+      <div class="toolbar-group radar-controls" aria-label="Radar controls">
+        <button class="icon-btn" id="radar-prev" type="button" title="Previous radar frame" aria-label="Previous radar frame">Prev</button>
+        <button class="icon-btn" id="radar-play" type="button" title="Play radar loop" aria-label="Play radar loop">Play</button>
+        <button class="icon-btn" id="radar-next" type="button" title="Next radar frame" aria-label="Next radar frame">Next</button>
+        <label class="opacity-label" for="radar-opacity">Opacity</label>
+        <input id="radar-opacity" type="range" min="0" max="100" value="55">
+      </div>
+    </div>
+    <div class="radar-meta">
+      <span id="radar-timestamp">Radar loading...</span>
+      <span class="radar-attribution">Radar visual only: RainViewer</span>
+    </div>
+    <div class="warning" id="radar-warning" hidden></div>
+  </section>
 
-<div class="card">
-<h3>Rainfall Input</h3>
+  <aside class="side-panel">
+    <section class="module">
+      <div class="module-head">
+        <div>
+          <div class="module-label">Live Rain</div>
+          <h1>Active Gauges</h1>
+        </div>
+        <div class="module-count" id="gauge-count">0</div>
+      </div>
+      <div class="summary-grid">
+        <div>
+          <span class="summary-value" id="wet-count">0</span>
+          <span class="summary-label">Raining</span>
+        </div>
+        <div>
+          <span class="summary-value" id="stale-count">0</span>
+          <span class="summary-label">Stale</span>
+        </div>
+      </div>
+    </section>
 
-<label>Rainfall Depth (mm)</label>
-<input type="number" id="rainfall" placeholder="e.g. 85">
+    <section class="module station-module">
+      <div class="module-head">
+        <div>
+          <div class="module-label">Station</div>
+          <h2 id="selected-name">Select a gauge</h2>
+        </div>
+      </div>
+      <div id="station-detail" class="station-detail">
+        Select a marker or table row to inspect recent rainfall.
+      </div>
+    </section>
 
-<label>Duration (minutes)</label>
-<select id="duration">
-  <option value="5">5 min</option>
-  <option value="15">15 min</option>
-  <option value="60">60 min</option>
-  <option value="360">6 hour</option>
-  <option value="1440">24 hour</option>
-</select>
+    <section class="module">
+      <div class="module-head compact">
+        <div>
+          <div class="module-label">Atmosphere</div>
+          <h2>Profile Layer</h2>
+        </div>
+      </div>
+      <p class="placeholder-copy">Reserved for future sounding, instability, moisture and steering-flow integration.</p>
+    </section>
+  </aside>
 
-<button onclick="calculateAEP()">Calculate AEP</button>
+  <section class="table-panel">
+    <div class="table-head">
+      <div>
+        <div class="module-label">Gauge Table</div>
+        <h2>Sorted by Rain Rate</h2>
+      </div>
+      <div class="legend" aria-label="Rain intensity legend">
+        <span><i style="background:#9AA7B2"></i>None</span>
+        <span><i style="background:#2ECC71"></i>Light</span>
+        <span><i style="background:#F1C40F"></i>Moderate</span>
+        <span><i style="background:#E67E22"></i>Heavy</span>
+        <span><i style="background:#C0392B"></i>Very heavy</span>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Station</th>
+            <th class="right">5 min</th>
+            <th class="right">15 min</th>
+            <th class="right">30 min</th>
+            <th class="right">60 min</th>
+            <th class="right">Rate</th>
+            <th>Intensity</th>
+            <th>Data age</th>
+          </tr>
+        </thead>
+        <tbody id="live-rain-body">
+          <tr><td colspan="8" class="empty-row">Loading live rainfall...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
 
-<div class="result" id="output"></div>
-</div>
-
-<div class="card">
-<h3>Chart (placeholder)</h3>
-<canvas id="chart" height="100"></canvas>
-</div>
-
-</div>
-
-<script>
-function calculateAEP() {
-  const rainfall = parseFloat(document.getElementById('rainfall').value);
-  const duration = parseInt(document.getElementById('duration').value);
-
-  if (!rainfall || rainfall <= 0) {
-    alert("Enter valid rainfall");
-    return;
-  }
-
-  // Dummy logic (we replace this later with real BOM / ARR data)
-  let aep;
-
-  if (rainfall > 100) aep = "1% (1 in 100 year)";
-  else if (rainfall > 70) aep = "5% (1 in 20 year)";
-  else if (rainfall > 40) aep = "20% (1 in 5 year)";
-  else aep = "Frequent event";
-
-  document.getElementById('output').innerText =
-    "Estimated AEP: " + aep + " (" + duration + " min)";
-}
-</script>
-
+<script type="module" src="./src/app.js"></script>
 </body>
 </html>
