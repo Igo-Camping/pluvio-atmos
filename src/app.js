@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded', initApp);
 async function initApp() {
   initMap(selectStation);
   bindControls();
-  initRadar({ map: getMap(), mode: 'auto' });
+  initRadar('auto');
   await loadStationsAndRain();
 }
 

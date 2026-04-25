@@ -7,6 +7,7 @@ import {
   RAINVIEWER_FALLBACK_HOST,
   RAINVIEWER_NATIVE_MAX_ZOOM
 } from './config.js';
+import { getMap } from './map.js';
 import { formatRadarTimestamp, formatTimestamp } from './status.js';
 
 const PROVIDERS = {
@@ -24,77 +25,55 @@ let sourceMode = PROVIDERS.auto;
 let radarLayer = null;
 let opacity = 0.55;
 let playTimer = null;
+let controlsBound = false;
 
-export async function initRadar(options = {}) {
+export async function initRadar(mode = PROVIDERS.auto) {
   console.info('[Atmos radar] build marker: BOM_PROVIDER_TEST_001');
-  if (options?.map) {
-    map = options.map;
-    sourceMode = options.mode || PROVIDERS.auto;
-  } else {
-    map = options;
-    sourceMode = PROVIDERS.auto;
-  }
+  map = getMap();
+  sourceMode = mode || PROVIDERS.auto;
   ensureRadarPane();
   bindRadarControls();
-  await loadRadarForMode(sourceMode);
-}
-
-async function loadRadarForMode(requestedProvider) {
-  sourceMode = requestedProvider || PROVIDERS.auto;
   stopPlayback();
-  logRadarMode(sourceMode);
+  console.info('[Atmos radar] mode:', sourceMode);
 
   if (sourceMode === PROVIDERS.auto) {
-    await loadRadarAuto();
-    return;
+    return loadRadarAuto();
   }
 
   clearRadarLayer();
 
-  try {
-    if (sourceMode === PROVIDERS.bom) {
-      console.info('[Atmos radar] attempting BoM');
-      await loadBomRadar();
-    } else {
-      console.info('[Atmos radar] attempting RainViewer fallback');
-      await loadRainViewerRadar();
-    }
-    showRadarMessage('');
-  } catch (err) {
-    logRadar('failure reason', err.message);
-    clearRadarLayer();
-    activeProvider = null;
-    setRadarTimestamp(sourceMode === PROVIDERS.bom ? 'BoM radar unavailable' : 'RainViewer radar unavailable');
-    setRadarStatus('Radar: unavailable');
-    logActiveProvider(activeProvider);
-    showRadarMessage(sourceMode === PROVIDERS.bom
-      ? 'BoM radar unavailable.'
-      : 'Radar unavailable — gauge data still active.');
+  if (sourceMode === PROVIDERS.rainviewer) {
+    return loadRainViewerRadar();
   }
+
+  if (sourceMode === PROVIDERS.bom) {
+    return loadBomRadar();
+  }
+
+  return loadRadarAuto();
 }
 
 async function loadRadarAuto() {
   clearRadarLayer();
+  console.info('[Atmos radar] attempting BoM');
 
   try {
-    console.info('[Atmos radar] attempting BoM');
     await loadBomRadar();
     setRadarStatus('Radar: BoM');
+    console.info('[Atmos radar] BoM success');
     return;
   } catch (err) {
-    console.warn('[Atmos radar] BoM failed:', err.message);
-    logRadar('failure reason', `BoM: ${err.message}`);
+    console.warn('[Atmos radar] BoM failed:', err);
     showRadarMessage('BoM radar unavailable — using RainViewer fallback.');
   }
 
+  console.info('[Atmos radar] attempting RainViewer fallback');
+
   try {
-    console.info('[Atmos radar] attempting RainViewer fallback');
     await loadRainViewerRadar();
     setRadarStatus('Radar: RainViewer fallback');
-    return;
   } catch (err) {
-    console.warn('[Atmos radar] RainViewer failed:', err.message);
-    logRadar('failure reason', `RainViewer: ${err.message}`);
+    console.warn('[Atmos radar] RainViewer failed:', err);
     clearRadarLayer();
     showRadarMessage('Radar unavailable — gauge data still active.');
     setRadarStatus('Radar: unavailable');
@@ -202,13 +181,15 @@ function getBomRadarUrl() {
 }
 
 function bindRadarControls() {
+  if (controlsBound) return;
+  controlsBound = true;
   document.getElementById('radar-source')?.addEventListener('change', event => {
-    loadRadarForMode(event.target.value);
+    initRadar(event.target.value);
   });
   document.getElementById('radar-prev')?.addEventListener('click', () => stepRadar(-1));
   document.getElementById('radar-next')?.addEventListener('click', () => stepRadar(1));
   document.getElementById('radar-play')?.addEventListener('click', toggleRadarPlayback);
-  document.getElementById('radar-reload')?.addEventListener('click', () => loadRadarForMode(sourceMode));
+  document.getElementById('radar-reload')?.addEventListener('click', () => initRadar(sourceMode));
   document.getElementById('radar-opacity')?.addEventListener('input', event => {
     opacity = Number(event.target.value || 55) / 100;
     if (radarLayer) radarLayer.setOpacity(opacity);
@@ -297,10 +278,6 @@ function showRadarMessage(message) {
 function logRadar(label, value) {
   const suffix = value === '' ? '' : ` ${value}`;
   console.info(`[Atmos radar] ${label}${suffix}`);
-}
-
-function logRadarMode(mode) {
-  console.info('[Atmos radar] mode:', mode);
 }
 
 function logActiveProvider(provider) {
