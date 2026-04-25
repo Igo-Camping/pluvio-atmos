@@ -1,6 +1,6 @@
 import { api, fetchStations, filterActiveStations, getLiveRain } from './liveRain.js';
 import { initMap, renderGaugeMarkers, selectGaugeMarker, focusGauge, getMap } from './map.js';
-import { initRadar } from './radar.js';
+import { initRadar } from './radar.js?v=BOM_PROVIDER_TEST_001';
 import { escapeHtml, formatDataAge, formatTimestamp, setStatus, stationArea } from './status.js';
 
 let activeStations = [];

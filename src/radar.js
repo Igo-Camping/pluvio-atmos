@@ -26,6 +26,7 @@ let opacity = 0.55;
 let playTimer = null;
 
 export async function initRadar(options = {}) {
+  console.info('[Atmos radar] build marker: BOM_PROVIDER_TEST_001');
   if (options?.map) {
     map = options.map;
     sourceMode = options.mode || PROVIDERS.auto;
