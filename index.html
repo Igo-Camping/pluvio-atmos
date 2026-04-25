@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pluvio Atmos</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: #0b1e2d;
+  color: #fff;
+}
+
+header {
+  padding: 20px;
+  background: #102c44;
+  text-align: center;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.container {
+  padding: 20px;
+  max-width: 900px;
+  margin: auto;
+}
+
+.card {
+  background: #132f47;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+label {
+  display: block;
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: 5px;
+  border: none;
+}
+
+button {
+  margin-top: 15px;
+  padding: 12px;
+  width: 100%;
+  background: #1ea7fd;
+  border: none;
+  border-radius: 5px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #0d8ae6;
+}
+
+.result {
+  font-size: 20px;
+  margin-top: 10px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+🌧️ Pluvio Atmos
+</header>
+
+<div class="container">
+
+<div class="card">
+<h3>Rainfall Input</h3>
+
+<label>Rainfall Depth (mm)</label>
+<input type="number" id="rainfall" placeholder="e.g. 85">
+
+<label>Duration (minutes)</label>
+<select id="duration">
+  <option value="5">5 min</option>
+  <option value="15">15 min</option>
+  <option value="60">60 min</option>
+  <option value="360">6 hour</option>
+  <option value="1440">24 hour</option>
+</select>
+
+<button onclick="calculateAEP()">Calculate AEP</button>
+
+<div class="result" id="output"></div>
+</div>
+
+<div class="card">
+<h3>Chart (placeholder)</h3>
+<canvas id="chart" height="100"></canvas>
+</div>
+
+</div>
+
+<script>
+function calculateAEP() {
+  const rainfall = parseFloat(document.getElementById('rainfall').value);
+  const duration = parseInt(document.getElementById('duration').value);
+
+  if (!rainfall || rainfall <= 0) {
+    alert("Enter valid rainfall");
+    return;
+  }
+
+  // Dummy logic (we replace this later with real BOM / ARR data)
+  let aep;
+
+  if (rainfall > 100) aep = "1% (1 in 100 year)";
+  else if (rainfall > 70) aep = "5% (1 in 20 year)";
+  else if (rainfall > 40) aep = "20% (1 in 5 year)";
+  else aep = "Frequent event";
+
+  document.getElementById('output').innerText =
+    "Estimated AEP: " + aep + " (" + duration + " min)";
+}
+</script>
+
+</body>
+</html>
