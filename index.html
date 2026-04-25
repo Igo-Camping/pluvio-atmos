@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://tilecache.rainviewer.com; connect-src 'self' https://nsw-rainfall-analyser-api.onrender.com https://wiski.mhl.nsw.gov.au https://api.rainviewer.com; font-src 'self' https://cdnjs.cloudflare.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://*.basemaps.cartocdn.com https://tilecache.rainviewer.com https://www.bom.gov.au https://reg.bom.gov.au; connect-src 'self' https://nsw-rainfall-analyser-api.onrender.com https://wiski.mhl.nsw.gov.au https://api.rainviewer.com; font-src 'self' https://cdnjs.cloudflare.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Pluviometrics Atmos</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -35,6 +35,11 @@
         <span class="toolbar-text" id="last-updated">Not loaded</span>
       </div>
       <div class="toolbar-group radar-controls" aria-label="Radar controls">
+        <select class="radar-source-select" id="radar-source" title="Radar source" aria-label="Radar source">
+          <option value="auto" selected>Auto</option>
+          <option value="bom">BoM</option>
+          <option value="rainviewer">RainViewer</option>
+        </select>
         <button class="icon-btn" id="radar-prev" type="button" title="Previous radar frame" aria-label="Previous radar frame">Prev</button>
         <button class="icon-btn" id="radar-play" type="button" title="Play radar loop" aria-label="Play radar loop">Play</button>
         <button class="icon-btn" id="radar-next" type="button" title="Next radar frame" aria-label="Next radar frame">Next</button>
@@ -44,8 +49,9 @@
       </div>
     </div>
     <div class="radar-meta">
+      <span id="radar-source-status">Radar: unavailable</span>
       <span id="radar-timestamp">Radar loading...</span>
-      <span class="radar-attribution">Radar visual only: RainViewer</span>
+      <span class="radar-attribution">Radar visual only</span>
     </div>
     <div class="warning" id="radar-warning" hidden></div>
   </section>
