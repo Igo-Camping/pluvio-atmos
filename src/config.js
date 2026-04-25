@@ -1,11 +1,9 @@
 export const API_BASE = 'https://nsw-rainfall-analyser-api.onrender.com';
 export const MHL_BASE = 'https://wiski.mhl.nsw.gov.au/KiWIS/KiWIS';
-export const BOM_RADAR_URL = 'https://www.bom.gov.au/radar/IDR714.gif';
-export const BOM_RADAR_NAME = 'BoM Sydney 512 km radar';
-export const BOM_RADAR_BOUNDS = [
-  [-36.02, 148.42],
-  [-31.38, 154.00]
-];
+export const RAINVIEWER_API = 'https://api.rainviewer.com/public/weather-maps.json';
+export const RAINVIEWER_FALLBACK_HOST = 'https://tilecache.rainviewer.com';
+export const RAINVIEWER_NATIVE_MAX_ZOOM = 7;
+export const RADAR_DISPLAY_MAX_ZOOM = 19;
 
 export const ACTIVE_GAUGE_MAX_AGE_DAYS = 90;
 export const ACTIVE_GAUGE_WINDOWS_DAYS = [1, 7, 30, ACTIVE_GAUGE_MAX_AGE_DAYS];
