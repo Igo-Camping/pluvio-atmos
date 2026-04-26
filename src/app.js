@@ -22,9 +22,7 @@ function bindControls() {
 
 async function loadStationsAndRain() {
   try {
-    setStatus('Connecting to rainfall services...');
-    const health = await api('/health');
-    setStatus(`${Number(health.stations_loaded || 0).toLocaleString()} stations available`);
+    setStatus('Loading rainfall station dataset...');
     const stations = await fetchStations();
     setStatus(`Checking active gauges... 0/${stations.length}`);
     activeStations = await filterActiveStations(stations, checked => {
@@ -33,8 +31,8 @@ async function loadStationsAndRain() {
     setStatus(`${activeStations.length.toLocaleString()} active gauges`);
     await refreshLiveRain();
   } catch (error) {
-    setStatus(`Atmos data unavailable: ${error.message}`, 'error');
-    renderEmptyTable(`Atmos could not load rainfall data: ${escapeHtml(error.message)}`);
+    setStatus('Station dataset unavailable', 'error');
+    renderEmptyTable(`Station dataset unavailable: ${escapeHtml(error.message)}`);
   }
 }
 

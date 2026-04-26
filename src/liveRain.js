@@ -4,7 +4,8 @@ import {
   ACTIVE_GAUGE_WINDOWS_DAYS,
   API_BASE,
   LIVE_RAIN_LOOKBACK_MINUTES,
-  MHL_BASE
+  MHL_BASE,
+  STATION_DATA_URL
 } from './config.js';
 import { isStale } from './status.js';
 
@@ -18,8 +19,44 @@ export async function api(path) {
 }
 
 export async function fetchStations() {
-  const data = await api('/stations?limit=2000');
-  return data.stations || [];
+  const response = await fetch(`${STATION_DATA_URL}?v=${Date.now()}`, { cache: 'no-store' });
+  if (!response.ok) throw new Error(`${STATION_DATA_URL} returned ${response.status}`);
+  const data = await response.json();
+  if (!Array.isArray(data?.stations)) throw new Error(`${STATION_DATA_URL} is missing stations[]`);
+  const stations = data.stations.map(normaliseSharedStation).filter(Boolean);
+  const mhlCount = stations.filter(station => station.source === 'mhl').length;
+  const bomCount = stations.filter(station => station.source === 'bom').length;
+  console.info('[Atmos stations] dataset URL:', STATION_DATA_URL);
+  console.info('[Atmos stations] generated_at:', data.generated_at || 'unknown');
+  console.info('[Atmos stations] total stations loaded:', stations.length);
+  console.info('[Atmos stations] MHL stations:', mhlCount);
+  console.info('[Atmos stations] BOM stations:', bomCount);
+  return stations;
+}
+
+function normaliseSharedStation(station) {
+  if (!station || typeof station !== 'object') return null;
+  const source = String(station.source || '').toLowerCase();
+  const dataIdentifier = String(station.data_identifier || '');
+  const dataId = prefix => dataIdentifier.toLowerCase().startsWith(`${prefix}:`)
+    ? dataIdentifier.slice(prefix.length + 1)
+    : '';
+  const tsId = source === 'mhl'
+    ? String(station.ts_id || dataId('mhl') || '').trim()
+    : String(station.ts_id || '').trim();
+  const bomId = source === 'bom'
+    ? String(station.bom_id || dataId('bom') || station.station_id || '').replace(/\D/g, '').padStart(6, '0')
+    : '';
+  return {
+    ...station,
+    name: station.name || station.station_name,
+    station_name: station.station_name || station.name,
+    source,
+    ts_id: tsId || null,
+    bom_id: bomId || station.bom_id,
+    lat: Number(station.lat),
+    lon: Number(station.lon)
+  };
 }
 
 function loadActiveGaugeCache() {
@@ -74,6 +111,7 @@ async function fetchMhlTimestampPresence(tsId, fromDt, toDt) {
 }
 
 export async function hasRecentGaugeReadings(station) {
+  if (station?.source === 'bom') return station.verification_status === 'verified';
   if (!station?.ts_id) return false;
   const cached = getCachedActiveGaugeState(station.ts_id);
   if (cached !== null) return cached;
@@ -104,7 +142,9 @@ export async function hasRecentGaugeReadings(station) {
 }
 
 export async function filterActiveStations(stations, onProgress = () => {}) {
-  const source = Array.isArray(stations) ? stations.filter(station => station?.ts_id) : [];
+  const source = Array.isArray(stations)
+    ? stations.filter(station => station?.ts_id || station?.source === 'bom')
+    : [];
   const keep = [];
   let checked = 0;
 
@@ -146,6 +186,39 @@ export async function fetchMhlRainfall(tsId, fromDt, toDt) {
       ? 0
       : Math.max(0, parseFloat(row[1]) || 0)
   })).filter(reading => reading.timestamp);
+}
+
+export async function fetchBomRainfall(bomId, fromDt, toDt) {
+  const params = new URLSearchParams({
+    bom_id: bomId,
+    from_dt: fromDt.toISOString(),
+    to_dt: toDt.toISOString(),
+    duration_minutes: '30'
+  });
+
+  const data = await api(`/bom/rainfall?${params}`);
+  const raw = data?.readings || [];
+  return raw.map(reading => ({
+    timestamp: reading.timestamp,
+    value: reading.value === null || reading.value === '' || reading.value === '--'
+      ? 0
+      : Math.max(0, parseFloat(reading.value) || 0)
+  })).filter(reading => reading.timestamp);
+}
+
+async function fetchStationRainfall(station, fromDt, toDt) {
+  if (station?.source === 'bom') {
+    const bomId = String(station.bom_id || station.data_identifier || station.station_id || '').replace(/\D/g, '').padStart(6, '0');
+    if (!bomId) throw new Error('BoM station number unavailable');
+    return {
+      readings: await fetchBomRainfall(bomId, fromDt, toDt),
+      source: 'BoM rainfall observations'
+    };
+  }
+  return {
+    readings: await fetchMhlRainfall(station.ts_id, fromDt, toDt),
+    source: 'MHL KiWIS 5-minute rainfall'
+  };
 }
 
 function readingTimeMs(reading) {
@@ -190,7 +263,8 @@ export async function getLiveRain(stations) {
     while (queue.length) {
       const station = queue.shift();
       try {
-        const readings = await fetchMhlRainfall(station.ts_id, from, now);
+        const rainfall = await fetchStationRainfall(station, from, now);
+        const readings = rainfall.readings;
         const latestMs = readings.reduce((max, reading) => Math.max(max, readingTimeMs(reading)), 0);
         const dataAgeMinutes = latestMs ? (Date.now() - latestMs) / 60000 : Infinity;
         const windows = {
@@ -212,7 +286,7 @@ export async function getLiveRain(stations) {
           intensity: classifyRainRate(rainRate),
           dataAgeMinutes,
           stale: isStale(dataAgeMinutes),
-          source: 'MHL KiWIS 5-minute rainfall'
+          source: rainfall.source
         });
       } catch (error) {
         rows.push({

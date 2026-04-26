@@ -1,4 +1,5 @@
 export const API_BASE = 'https://nsw-rainfall-analyser-api.onrender.com';
+export const STATION_DATA_URL = 'https://data.pluviometrics.com.au/pluviometrics_rainfall_stations.json';
 export const MHL_BASE = 'https://wiski.mhl.nsw.gov.au/KiWIS/KiWIS';
 export const BOM_RADAR_URL = 'https://www.bom.gov.au/radar/IDR714.gif';
 export const BOM_RADAR_NAME = 'BoM Sydney 512 km radar';
